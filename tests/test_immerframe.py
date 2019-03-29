@@ -114,3 +114,28 @@ def test_sharing():
     assert new_l == [d, 100]
     assert new_l[0] is d
     assert l == [d]
+
+
+def test_can_operate_on_proxy_made_objects():
+    l = [1, 2, 3]
+
+    proxy = Proxy()
+    proxy[1] = []
+    proxy[1].append(4)
+    proxy[1].append(5)
+
+    new_l = produce(proxy, l)
+    assert new_l == [1, [4, 5], 3]
+
+
+def test_use_proxy_twice():
+    l = [1, 2, 3]
+
+    proxy = Proxy()
+    proxy[1] = 'foo'
+
+    new_l = produce(proxy, l)
+    assert new_l == [1, 'foo', 3]
+
+    new_l = produce(proxy, l)
+    assert new_l == [1, 'foo', 3]

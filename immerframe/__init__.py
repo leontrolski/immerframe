@@ -19,7 +19,7 @@ class El:
     kwargs: Any = empty
 
 
-class ListWithOp(list):
+class Path(list):
     def __init__(self):
         self.op = empty
         self.other = empty
@@ -29,7 +29,7 @@ class ListWithOp(list):
 class Proxy:
     def __init__(self) -> None:
         self._paths = []
-        self._current_path = ListWithOp()
+        self._current_path = Path()
 
     def __getattr__(self, key) -> 'Proxy':
         if key in {'_paths', '_current_path'}:
@@ -48,13 +48,13 @@ class Proxy:
         self._current_path.append(El(type='getattr', key=key))
         self._current_path.append(El(type='setattr', value=value))
         self._paths.append(self._current_path)
-        self._current_path = ListWithOp()
+        self._current_path = Path()
 
     def __setitem__(self, key, value) -> None:
         self._current_path.append(El(type='getitem', key=key))
         self._current_path.append(El(type='setitem', value=value))
         self._paths.append(self._current_path)
-        self._current_path = ListWithOp()
+        self._current_path = Path()
 
     def __call__(self, *args, **kwargs):
         prev_path = self._current_path.pop()
@@ -63,7 +63,7 @@ class Proxy:
         el = El(type='call', key=prev_path.key, args=args, kwargs=kwargs)
         self._current_path.append(el)
         self._paths.append(self._current_path)
-        self._current_path = ListWithOp()
+        self._current_path = Path()
         return self
 
     def __add__(self, other):
@@ -92,9 +92,10 @@ def _safe_getitem(obj, key):
     except (KeyError, IndexError):
         return empty
 
-def produce(instance: Any, obj: T) -> T:
-    assert instance._paths, 'Something must be done with the proxy!'
-    for path in instance._paths:
+def produce(proxy: Any, obj: T) -> T:
+    assert proxy._paths, 'Something must be done with the proxy!'
+    for path in proxy._paths:
+        path = copy(path)
         final = path.pop()
         chain = [obj]
         for el in path:
