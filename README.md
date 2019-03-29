@@ -3,6 +3,10 @@ Create the next immutable object by simply modifying the current one
 
 *This is a Python port of [immer](https://github.com/mweststrate/immer).*
 
+```bash
+pip install immerframe
+```
+
 Want to do a deep update on a Python data structure without mutating it? No problem:
 
 ```python
@@ -37,7 +41,7 @@ new_nested = produce(proxy, nested)
 
 while `nested` will remain unchanged.
 
-"What about my typing?":
+"What about my typing?"
 
 ```python
 from typing import cast
