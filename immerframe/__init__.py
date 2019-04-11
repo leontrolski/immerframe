@@ -106,8 +106,6 @@ def produce(proxy: Any, obj: T) -> T:
         final = path.pop()
         chain = [obj]
         for el in path:
-
-            gets = {'getattr': getattr, 'getitem': _safe_getitem}
             chain.append(_get(chain[-1], el))
 
         tip = chain.pop()
@@ -132,24 +130,32 @@ def produce(proxy: Any, obj: T) -> T:
 
 class Lens:
     def __init__(self, proxy):
-        self.proxy = proxy
+        self._proxy = proxy
 
     def get(self, obj):
-        for el in self.proxy._current_path:
+        for el in self._proxy._current_path:
             obj = _get(obj, el)
         return obj
 
     def set(self, obj, value):
+        proxy = self._proxy
         # a bit ugly, but does the trick
-        self.proxy._current_path.append(El(type='setitem', value=value))
-        self.proxy._paths.append(self.proxy._current_path)
-        new_obj = produce(self.proxy, obj)
-        self.proxy._paths.pop()
-        self.proxy._current_path.pop()
+        proxy._current_path.append(El(type='setitem', value=value))
+        proxy._paths.append(proxy._current_path)
+        new_obj = produce(proxy, obj)
+        proxy._paths.pop()
+        proxy._current_path.pop()
         return new_obj
 
     def modify(self, obj, f):
         return self.set(obj, f(self.get(obj)))
+
+    def proxy(self):
+        # copy the provided proxy
+        new_proxy = Proxy()
+        new_proxy._paths = [copy(p) for p in self._proxy._paths]
+        new_proxy._current_path = copy(self._proxy._current_path)
+        return new_proxy
 
 
 def _is_attr(obj):

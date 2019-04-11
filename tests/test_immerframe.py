@@ -153,3 +153,15 @@ def test_lens():
 
     another_d = lens.modify(d, lambda n: n + 1000)
     assert another_d == {'foo': [1, 1002, 3, 4]}
+
+
+def test_compose_lens():
+    d = {'foo': [1, 2, 3, 4]}
+
+    foo_lens = Lens(Proxy()['foo'])
+    foo_1_lens = Lens(foo_lens.proxy()[1])
+    foo_2_lens = Lens(foo_lens.proxy()[2])
+
+    new_d = foo_1_lens.set(d, 100)
+    new_d = foo_2_lens.modify(new_d, lambda n: n + 1000)
+    assert new_d == {'foo': [1, 100, 1003, 4]}

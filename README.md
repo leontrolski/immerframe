@@ -93,8 +93,8 @@ another_d = lens.modify(d, lambda n: n + 1000)
 assert another_d == {'foo': [1, 1002, 3, 4]}
 ```
 
+`Lens`s are composable via their `.proxy()` method, (this duplicates of the originally provided proxy) `Lens(Lens(Proxy()['foo']).proxy()[1])` is equivalent to `Lens(Proxy()['foo'][1])`.
 
 ## Plugins:
 
-`immerframe` currently has an `attrs` plugin, registering plugins is pretty easy, just mutate the `immerframe.plugins` list (see [here](https://github.com/leontrolski/immerframe/blob/master/immerframe/__init__.py#L134) for the structure of the existing attr plugin).
-
+`immerframe` currently has an `attrs` plugin, registering plugins is pretty easy, just mutate the `immerframe.plugins` list (see [here](https://github.com/leontrolski/immerframe/blob/master/immerframe/__init__.py#L171) for the structure of the existing attr plugin).
