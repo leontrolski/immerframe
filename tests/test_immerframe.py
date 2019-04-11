@@ -150,3 +150,6 @@ def test_lens():
     assert d == {'foo': [1, 2, 3, 4]}
     assert new_d == {'foo': [1, 100, 3, 4]}
     assert lens.get(d) == 2
+
+    another_d = lens.modify(d, lambda n: n + 1000)
+    assert another_d == {'foo': [1, 1002, 3, 4]}

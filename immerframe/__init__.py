@@ -148,6 +148,9 @@ class Lens:
         self.proxy._current_path.pop()
         return new_obj
 
+    def modify(self, obj, f):
+        return self.set(obj, f(self.get(obj)))
+
 
 def _is_attr(obj):
     return hasattr(obj, '__attrs_attrs__')

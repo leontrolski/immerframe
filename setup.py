@@ -15,7 +15,7 @@ classifiers = [
 
 setup(
     name='immerframe',
-    version='0.0.3',
+    version='0.0.4',
     description='creates the next immutable object by simply '
                 'modifying the current one',
     long_description=open('README.md').read(),
