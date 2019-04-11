@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 import attr
-from immerframe import Proxy, produce
+from immerframe import Lens, Proxy, produce
 
 
 def test_list():
@@ -59,6 +59,7 @@ def test_namedtuple():
     new_cat = produce(proxy, cat)
 
     assert new_cat == Cat(name='Sam')
+
 
 def test_attr():
     @attr.s(auto_attribs=True)
@@ -139,3 +140,13 @@ def test_use_proxy_twice():
 
     new_l = produce(proxy, l)
     assert new_l == [1, 'foo', 3]
+
+
+def test_lens():
+    d = {'foo': [1, 2, 3, 4]}
+
+    lens = Lens(Proxy()['foo'][1])
+    new_d = lens.set(d, 100)
+    assert d == {'foo': [1, 2, 3, 4]}
+    assert new_d == {'foo': [1, 100, 3, 4]}
+    assert lens.get(d) == 2

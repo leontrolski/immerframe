@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import sys
 from setuptools import setup, find_packages
 
 classifiers = [
@@ -16,7 +15,7 @@ classifiers = [
 
 setup(
     name='immerframe',
-    version='0.0.1',
+    version='0.0.3',
     description='creates the next immutable object by simply '
                 'modifying the current one',
     long_description=open('README.md').read(),

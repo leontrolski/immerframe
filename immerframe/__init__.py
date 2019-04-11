@@ -1,5 +1,5 @@
 from copy import copy
-from typing import TypeVar, Any, NamedTuple
+from typing import TypeVar, Any
 
 import attr
 
@@ -86,11 +86,18 @@ class Proxy:
         self._current_path.op = '__truediv__'
         self._current_path.other = other
 
+
 def _safe_getitem(obj, key):
     try:
         return obj[key]
     except (KeyError, IndexError):
         return empty
+
+
+def _get(obj, el):
+    gets = {'getattr': getattr, 'getitem': _safe_getitem}
+    return gets[el.type](obj, el.key)
+
 
 def produce(proxy: Any, obj: T) -> T:
     assert proxy._paths, 'Something must be done with the proxy!'
@@ -99,8 +106,9 @@ def produce(proxy: Any, obj: T) -> T:
         final = path.pop()
         chain = [obj]
         for el in path:
+
             gets = {'getattr': getattr, 'getitem': _safe_getitem}
-            chain.append(gets[el.type](chain[-1], el.key))
+            chain.append(_get(chain[-1], el))
 
         tip = chain.pop()
         if final.type in {'setattr', 'setitem'}:
@@ -120,6 +128,25 @@ def produce(proxy: Any, obj: T) -> T:
 
         obj = value
     return obj
+
+
+class Lens:
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+    def get(self, obj):
+        for el in self.proxy._current_path:
+            obj = _get(obj, el)
+        return obj
+
+    def set(self, obj, value):
+        # a bit ugly, but does the trick
+        self.proxy._current_path.append(El(type='setitem', value=value))
+        self.proxy._paths.append(self.proxy._current_path)
+        new_obj = produce(self.proxy, obj)
+        self.proxy._paths.pop()
+        self.proxy._current_path.pop()
+        return new_obj
 
 
 def _is_attr(obj):

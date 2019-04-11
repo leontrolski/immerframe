@@ -75,6 +75,21 @@ assert new_l[0] is d
 - `namedtuples`s
 - `attrs`s
 
+## `Lens`
+
+`immerframe` comes with a `Lens` class to help with path reuse:
+
+```python
+d = {'foo': [1, 2, 3, 4]}
+
+lens = Lens(Proxy()['foo'][1])
+
+new_d = lens.set(d, 100)
+assert new_d == {'foo': [1, 100, 3, 4]}
+assert d == {'foo': [1, 2, 3, 4]}
+assert lens.get(d) == 2
+```
+
 
 ## Plugins:
 
