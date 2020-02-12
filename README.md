@@ -13,7 +13,7 @@ pip install immerframe
 
 First, let's import some stuff
 
-```
+```python
 from dataclasses import dataclass
 from immerframe import Proxy
 ```
@@ -54,6 +54,7 @@ assert nested == {
 
 `new_nested` will be `nested`, but with the mutations with specified in the `with Proxy(...)` block
 
+```python
 assert new_nested == {
     "ants": [Ant(age=11), ant_20],
     "foo": 99,
