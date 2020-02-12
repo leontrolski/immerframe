@@ -1,100 +1,98 @@
 # immerframe
-Create the next immutable object by simply modifying the current one
 
-*This is a Python port of [immer](https://github.com/mweststrate/immer).*
+Intuitively perform deep updates on python objects
+- without mutating them
+- while being efficient via structural sharing - no `deepcopy`
+- while maintaining type correctness
+
+*This is (almost) a Python port of [immer](https://github.com/mweststrate/immer).*
 
 ```bash
 pip install immerframe
 ```
 
-Want to do a deep update on a Python data structure without mutating it? No problem:
+First, let's import some stuff
+
+```
+from dataclasses import dataclass
+from immerframe import Proxy
+```
+
+Now, consider the data:
 
 ```python
-from immerframe import Proxy, produce
+@dataclass
+class Ant:
+    age: int
 
-Ant = namedtuple('Ant', 'age')
+ant_10 = Ant(age=10)
+ant_20 = Ant(age=20)
 nested = {
-    'foo': [
-        Ant(age=2),
-        'bar',
-    ],
-}
-
-proxy = Proxy()
-proxy['foo'][0].age += 1
-proxy['foo'].pop()
-proxy['qux'] = 99
-
-new_nested = produce(proxy, nested)
-```
-
-`new_nested` will now equal
-
-```python
-{
-    'foo': [
-        Ant(age=3),
-    ],
-    'qux': 99,
+    "ants": [ant_10, ant_20, None],
 }
 ```
 
-while `nested` will remain unchanged.
-
-"What about my typing?"
+let's pretend to mutate it
 
 ```python
-from typing import cast
-
-Cat = namedtuple('Cat', 'name')
-
-proxy = cast(Cat, Proxy())
-# continue as before but with autocomplete and type checking!
-proxy.name = 'Felix'
+with Proxy(nested) as (p, new_nested):
+    p["ants"][0].age += 1
+    p["ants"].pop()
+    p["foo"] = 99
 ```
 
-`immerframe` uses structural sharing, so should be efficient in most cases:
+(note `p` and `new_nested` should have the correct types in mypy)
+
+
+`nested` will remain the same
 
 ```python
-d = {'foo': 1}
-l = [d]
-
-proxy = Proxy()
-proxy.append(100)
-new_l = produce(proxy, l)
-assert new_l == [d, 100]
-assert new_l[0] is d
+assert nested == {
+    "ants": [ant_10, ant_20, None],
+}
 ```
 
-`immerframe` supports:
+`new_nested` will be `nested`, but with the mutations with specified in the `with Proxy(...)` block
 
-- `dict`s
-- `list`s
-- `set`s
-- `tuples`s
-- `namedtuples`s
-- `attrs`s
+assert new_nested == {
+    "ants": [Ant(age=11), ant_20],
+    "foo": 99,
+}
+```
 
-## `Lens`
-
-`immerframe` comes with a `Lens` class to help with path reuse, it has `.get`, `.set`, `.modify`:
+but it _won't_ be a deep copy
 
 ```python
-d = {'foo': [1, 2, 3, 4]}
-
-lens = Lens(Proxy()['foo'][1])
-
-new_d = lens.set(d, 100)
-assert new_d == {'foo': [1, 100, 3, 4]}
-assert d == {'foo': [1, 2, 3, 4]}
-assert lens.get(d) == 2
-
-another_d = lens.modify(d, lambda n: n + 1000)
-assert another_d == {'foo': [1, 1002, 3, 4]}
+assert new_nested["ants"][1] is ant_20
 ```
 
-`Lens`s are composable via their `.proxy()` method, (this duplicates of the originally provided proxy) `Lens(Lens(Proxy()['foo']).proxy()[1])` is equivalent to `Lens(Proxy()['foo'][1])`.
+`immerframe` supports most thing's that can be `copy`ed
 
-## Plugins:
+## Things to remember
 
-`immerframe` currently has an `attrs` plugin, registering plugins is pretty easy, just mutate the `immerframe.plugins` list (see [here](https://github.com/leontrolski/immerframe/blob/master/immerframe/__init__.py#L171) for the structure of the existing attr plugin).
+#### Mutating the same thing in a block twice may not do what you'd expect in the following type of case:
+
+```python
+with Proxy([1]) as (l, new_l):
+    l[0] += 5
+    l[0] += 10
+```
+
+will give `l == [11]`
+
+#### Use keys rather than references to loop over and mutate nested `dict`s/`list`s:
+
+```python
+with Proxy(new_nested) as (p, new_nested):
+    for k in new_nested:
+        p[k] += 1
+    for i, n in enumerate(new_nested["ants"]):
+        if n.age < 15:
+            p["ants"][i].age + 10
+```
+
+
+### TODO
+
+- implement all dunder methods
+- finish typing

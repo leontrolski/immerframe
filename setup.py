@@ -14,26 +14,20 @@ classifiers = [
 ]
 
 setup(
-    name='immerframe',
-    version='0.0.5',
-    description='creates the next immutable object by simply '
-                'modifying the current one',
-    long_description=open('README.md').read(),
+    name="immerframe",
+    version="0.1.0",
+    description="creates the next immutable object by simply "
+    "modifying the current one",
+    long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     classifiers=classifiers,
     keywords=[],
-    author='Oliver Russell',
-    author_email='ojhrussell@gmail.com',
-    url='https://github.com/leontrolski/immerframe',
-    license='MIT License',
+    author="Oliver Russell",
+    author_email="ojhrussell@gmail.com",
+    url="https://github.com/leontrolski/immerframe",
+    license="MIT License",
     packages=find_packages(),
-    extras_require=dict(
-        testing=[
-            'pytest',
-        ],
-    ),
-    install_requires=[
-        'attrs',
-    ],
-    test_suite='pytest',
+    extras_require=dict(testing=["pytest",],),
+    install_requires=["attrs",],
+    test_suite="pytest",
 )

@@ -1,16 +1,38 @@
 from copy import copy
-from typing import TypeVar, Any
+from dataclasses import dataclass, fields, is_dataclass
+from typing import TypeVar, Any, Generic, List, Optional, Tuple, Union, cast
 
 import attr
 
 
-T = TypeVar('T')
-empty = object()
-
-# todo: rename to Proxy, more tests, publish
+T = TypeVar("T")
 
 
-@attr.s(auto_attribs=True, frozen=True)
+class Empty:
+    def __repr__(self) -> str:
+        return "<empty>"
+
+
+empty = Empty()
+
+
+class ImmerframeError(RuntimeError):
+    pass
+
+
+class NoAttributeToCallError(ImmerframeError):
+    pass
+
+
+class ProduceError(ImmerframeError):
+    pass
+
+
+class HandleTypeError(ImmerframeError):
+    pass
+
+
+@dataclass(frozen=True)
 class El:
     type: str  # getattr|getitem|setattr|call
     key: Any = empty
@@ -19,177 +41,158 @@ class El:
     kwargs: Any = empty
 
 
-class Path(list):
-    def __init__(self):
-        self.op = empty
-        self.other = empty
+class Path(List[El]):
+    def __init__(self) -> None:
+        self.op: Union[str, Empty] = empty
+        self.other: Any = empty
         super().__init__()
 
 
-class Proxy:
-    def __init__(self) -> None:
-        self._paths = []
+class Proxy(Generic[T]):
+    def __init__(self, value: T = None) -> None:
+        self._value = value
+        self._return_value: T = empty
+        if value is not None:
+            self._return_value = copy(self._value)
+        self._paths: List[Path] = []
         self._current_path = Path()
 
-    def __getattr__(self, key) -> 'Proxy':
-        if key in {'_paths', '_current_path'}:
-            return self.__dict__[key]
-        self._current_path.append(El(type='getattr', key=key))
+    def __repr__(self) -> str:
+        return f"<Proxy of: {self._value}>"
+
+    def __enter__(self) -> Tuple[T, T]:  # the typing here is a lie on-purpose
+        return cast(T, self), self._return_value
+
+    def __exit__(self, type, value, tb):
+        final_value = produce(self)
+        v = self._return_value
+        if isinstance(v, list):
+            v.clear()
+            v.extend(final_value)
+        elif isinstance(v, (dict, set)):
+            v.clear()
+            v.update(final_value)
+        elif is_dataclass(v):
+            for field in fields(v):
+                value = getattr(final_value, field.name)
+                setattr(v, field.name, value)
+        else:  # assume attrs
+            for field in attr.fields(v.__class__):
+                value = getattr(final_value, field.name)
+                setattr(v, field.name, value)
+
+    def _terminate_current_path(self) -> None:
+        self._paths.append(self._current_path)
+        self._current_path = Path()
+
+    def __getattr__(self, key: str) -> "Proxy":
+        self._current_path.append(El(type="getattr", key=key))
         return self
 
-    def __getitem__(self, key) -> 'Proxy':
-        self._current_path.append(El(type='getitem', key=key))
+    def __getitem__(self, key: Any) -> "Proxy":
+        self._current_path.append(El(type="getitem", key=key))
         return self
 
-    def __setattr__(self, key, value) -> None:
-        if key in {'_paths', '_current_path'}:
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key in {
+            "_value",
+            "_return_value",
+            "_paths",
+            "_current_path",
+            "_terminate_current_path",
+        }:
             self.__dict__[key] = value
             return
-        self._current_path.append(El(type='getattr', key=key))
-        self._current_path.append(El(type='setattr', value=value))
-        self._paths.append(self._current_path)
-        self._current_path = Path()
+        self._current_path.append(El(type="getattr", key=key))
+        self._current_path.append(El(type="setattr", value=value))
+        self._terminate_current_path()
 
-    def __setitem__(self, key, value) -> None:
-        self._current_path.append(El(type='getitem', key=key))
-        self._current_path.append(El(type='setitem', value=value))
-        self._paths.append(self._current_path)
-        self._current_path = Path()
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self._current_path.append(El(type="getitem", key=key))
+        self._current_path.append(El(type="setitem", value=value))
+        self._terminate_current_path()
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
+        if not self._current_path:
+            raise NoAttributeToCallError("cannot call an unmodified Proxy object")
         prev_path = self._current_path.pop()
-        if prev_path.type != 'getattr':
-            raise RuntimeError('Can only call methods on known attributes')
-        el = El(type='call', key=prev_path.key, args=args, kwargs=kwargs)
+        if prev_path.type != "getattr":
+            raise NoAttributeToCallError("can only call methods on known attributes")
+
+        el = El(type="call", key=prev_path.key, args=args, kwargs=kwargs)
         self._current_path.append(el)
-        self._paths.append(self._current_path)
-        self._current_path = Path()
-        return self
+        self._terminate_current_path()
 
-    def __add__(self, other):
+    # TODO: fill in all the magic methods
+    def __add__(self, other: Any) -> None:
         self._current_path.pop()
-        self._current_path.op = '__add__'
+        self._current_path.op = "__add__"
         self._current_path.other = other
 
-    def __sub__(self, other):
+    def __sub__(self, other: Any) -> None:
         self._current_path.pop()
-        self._current_path.op = '__sub__'
+        self._current_path.op = "__sub__"
         self._current_path.other = other
 
-    def __mul__(self, other):
+    def __mul__(self, other: Any) -> None:
         self._current_path.pop()
-        self._current_path.op = '__mul__'
+        self._current_path.op = "__mul__"
         self._current_path.other = other
 
-    def __truediv__(self, other):
+    def __truediv__(self, other: Any) -> None:
         self._current_path.pop()
-        self._current_path.op = '__truediv__'
+        self._current_path.op = "__truediv__"
         self._current_path.other = other
 
 
-def _safe_getitem(obj, key):
+def _safe_getitem(obj: Any, key: Any) -> Any:
     try:
         return obj[key]
     except (KeyError, IndexError):
         return empty
 
 
-def _get(obj, el):
-    gets = {'getattr': getattr, 'getitem': _safe_getitem}
+def _get(obj: Any, el: El) -> Any:
+    gets = {"getattr": getattr, "getitem": _safe_getitem}
     return gets[el.type](obj, el.key)
 
 
-def produce(proxy: Any, obj: T) -> T:
-    assert proxy._paths, 'Something must be done with the proxy!'
-    for path in proxy._paths:
-        path = copy(path)
-        final = path.pop()
+def produce(proxy: Proxy, obj: Optional[T] = None) -> T:
+    if obj is None:
+        obj = proxy._value
+    for path_ in proxy._paths:
+        op, other = path_.op, path_.other
+        *path, final = path_
+
         chain = [obj]
         for el in path:
-            chain.append(_get(chain[-1], el))
+            *_, tip = chain
+            chain.append(_get(tip, el))
 
         tip = chain.pop()
-        if final.type in {'setattr', 'setitem'}:
-            if path.op is empty:
+        if final.type in {"setattr", "setitem"}:
+            if op is empty:
                 value = final.value
             else:
-                value = getattr(tip, path.op)(path.other)
-        elif final.type == 'call':
+                value = getattr(tip, op)(other)
+        elif final.type == "call":
             # shallow copy, then run whatever mutatey function
             value = copy(tip)
             getattr(value, final.key)(*final.args, **final.kwargs)
         else:
-            raise RuntimeError('Final path appears no have no effect')
+            raise ProduceError("final path appears no have no effect")
 
-        for container, el in reversed(list(zip(chain, path))):
-            value = _handle(container, el, value)
+        for inner_obj, el in reversed(list(zip(chain, path))):
+            value = _copy_and_set(inner_obj, el, value)
 
         obj = value
     return obj
 
 
-class Lens:
-    def __init__(self, proxy):
-        self._proxy = proxy
-
-    def get(self, obj):
-        for el in self._proxy._current_path:
-            obj = _get(obj, el)
-        return obj
-
-    def set(self, obj, value):
-        proxy = self._proxy
-        # a bit ugly, but does the trick
-        proxy._current_path.append(El(type='setitem', value=value))
-        proxy._paths.append(proxy._current_path)
-        new_obj = produce(proxy, obj)
-        proxy._paths.pop()
-        proxy._current_path.pop()
-        return new_obj
-
-    def modify(self, obj, f):
-        return self.set(obj, f(self.get(obj)))
-
-    def proxy(self):
-        # copy the provided proxy
-        new_proxy = Proxy()
-        new_proxy._paths = [copy(p) for p in self._proxy._paths]
-        new_proxy._current_path = copy(self._proxy._current_path)
-        return new_proxy
-
-
-def _is_attr(obj):
-    return hasattr(obj, '__attrs_attrs__')
-
-
-def _handle_attr(obj, path, value):
-    new = {n.name: getattr(obj, n.name) for n in obj.__attrs_attrs__}
-    new[path.key] = value
-    return type(obj)(**new)
-
-
-plugins = [
-    (_is_attr, _handle_attr),
-]
-
-
-def _handle(obj, path, value):
-    for switch, handler in plugins:
-        if switch(obj):
-            return handler(obj, path, value)
-    if isinstance(obj, dict):
-        new = dict(obj)
-        new[path.key] = value
+def _copy_and_set(obj: T, el: El, value: Any) -> T:
+    new = copy(obj)
+    if isinstance(obj, (dict, list)):
+        new[el.key] = value
         return new
-    if isinstance(obj, list):
-        new = list(obj)
-        new[path.key] = value
-        return new
-    if isinstance(obj, tuple):
-        if hasattr(obj, '_asdict'):
-            new = obj._asdict()
-            new[path.key] = value
-            return type(obj)(**new)
-        return obj[:path.key] + (value,) + obj[path.key + 1:]
-    else:
-        raise RuntimeError(f"Can't handle objects of type: {type(obj)}")
+    setattr(new, el.key, value)
+    return new
