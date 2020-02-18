@@ -2,9 +2,6 @@ from copy import copy
 from dataclasses import dataclass, fields, is_dataclass
 from typing import TypeVar, Any, Generic, List, Optional, Tuple, Union, cast
 
-import attr
-
-
 T = TypeVar("T")
 
 
