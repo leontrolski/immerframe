@@ -28,6 +28,6 @@ setup(
     license="MIT License",
     packages=find_packages(),
     extras_require=dict(testing=["pytest",],),
-    install_requires=["attrs",],
+    install_requires=[],
     test_suite="pytest",
 )
