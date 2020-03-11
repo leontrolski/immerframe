@@ -67,7 +67,7 @@ but it _won't_ be a deep copy
 assert new_nested["ants"][1] is ant_20
 ```
 
-`immerframe` supports most thing's that can be `copy`ed
+`immerframe` supports things that can be `copy`ed
 
 ## Things to remember
 
@@ -79,7 +79,7 @@ with Proxy([1]) as (l, new_l):
     l[0] += 10
 ```
 
-will give `l == [11]`
+will give `new_l == [11]`
 
 #### Use keys rather than references to loop over and mutate nested `dict`s/`list`s:
 
